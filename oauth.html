@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Hub EC · Autorização Mercado Livre</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --grafite:#262422;
+    --grafite-claro:#33302d;
+    --champanhe:#d9bf8f;
+    --marfim:#f4efe4;
+    --ok:#8fbf8f;
+    --alerta:#d98f8f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:var(--grafite);
+    color:var(--marfim);
+    font-family:"Segoe UI",system-ui,sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .card{
+    width:100%;
+    max-width:680px;
+    background:var(--grafite-claro);
+    border:1px solid rgba(217,191,143,.25);
+    border-radius:12px;
+    padding:40px 36px;
+    text-align:center;
+  }
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--champanhe);
+    margin-bottom:10px;
+  }
+  h1{
+    font-family:"Anton",sans-serif;
+    font-weight:400;
+    font-size:clamp(26px,5vw,40px);
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    margin-bottom:26px;
+  }
+  .code-box{
+    background:var(--grafite);
+    border:1px dashed var(--champanhe);
+    border-radius:8px;
+    padding:22px 18px;
+    font-family:Consolas,Menlo,monospace;
+    font-size:clamp(15px,2.6vw,21px);
+    word-break:break-all;
+    color:var(--marfim);
+    user-select:all;
+    cursor:text;
+  }
+  button{
+    margin-top:20px;
+    background:var(--champanhe);
+    color:var(--grafite);
+    border:none;
+    border-radius:8px;
+    padding:14px 34px;
+    font-size:16px;
+    font-weight:700;
+    cursor:pointer;
+    font-family:inherit;
+  }
+  button:hover{filter:brightness(1.08)}
+  button:focus-visible{outline:3px solid var(--marfim);outline-offset:2px}
+  .timer{
+    margin-top:18px;
+    font-size:14px;
+    color:var(--champanhe);
+  }
+  .timer.expirado{color:var(--alerta)}
+  .bar{
+    margin-top:8px;
+    height:6px;
+    background:rgba(244,239,228,.12);
+    border-radius:3px;
+    overflow:hidden;
+  }
+  .bar>div{
+    height:100%;
+    width:100%;
+    background:var(--champanhe);
+    transition:width 1s linear;
+  }
+  .hint{
+    margin-top:22px;
+    font-size:13px;
+    line-height:1.6;
+    color:rgba(244,239,228,.65);
+  }
+  .status-ok{color:var(--ok);font-weight:700}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">Empório Corleone · Hub</div>
+
+  <!-- Estado 1: sem code (acesso direto) -->
+  <div id="aguardando">
+    <h1>Aguardando o Mercado Livre</h1>
+    <p class="hint">
+      Esta é a página de redirecionamento OAuth do Hub EC.<br>
+      Se você chegou aqui direto, tudo certo: a página está no ar.<br>
+      Rode <strong>setup_ml_token_rapido.py</strong>, autorize a aplicação,
+      e o código aparecerá aqui automaticamente.
+    </p>
+  </div>
+
+  <!-- Estado 2: code recebido -->
+  <div id="recebido" class="hidden">
+    <h1>Código recebido</h1>
+    <div class="code-box" id="codeBox"></div>
+    <button id="copiar" type="button">Copiar código</button>
+    <div class="timer" id="timer">Válido por ~<span id="seg">60</span>s — copie e cole no terminal</div>
+    <div class="bar"><div id="barFill"></div></div>
+    <p class="hint">Cole no terminal do Hub que está aguardando.<br>
+    Se expirar, feche esta aba e autorize de novo — um código novo será gerado.</p>
+  </div>
+
+  <!-- Estado 3: usuário negou / erro -->
+  <div id="negado" class="hidden">
+    <h1>Autorização não concluída</h1>
+    <p class="hint">O Mercado Livre retornou: <strong id="erroMsg"></strong><br>
+    Volte à URL de autorização e clique em <strong>Autorizar</strong> logado na conta da loja.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get("code");
+  var erro = params.get("error");
+
+  if (erro){
+    document.getElementById("aguardando").classList.add("hidden");
+    document.getElementById("negado").classList.remove("hidden");
+    document.getElementById("erroMsg").textContent = erro;
+    return;
+  }
+  if (!code) return; // permanece no estado "aguardando"
+
+  document.getElementById("aguardando").classList.add("hidden");
+  document.getElementById("recebido").classList.remove("hidden");
+  var box = document.getElementById("codeBox");
+  box.textContent = code;
+
+  // Copiar
+  var btn = document.getElementById("copiar");
+  btn.addEventListener("click", function(){
+    function feito(){
+      btn.textContent = "Copiado \u2713";
+      btn.classList.add("status-ok");
+      setTimeout(function(){ btn.textContent = "Copiar código"; }, 2500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code).then(feito, selecionar);
+    } else { selecionar(); }
+    function selecionar(){
+      var r = document.createRange();
+      r.selectNodeContents(box);
+      var s = window.getSelection();
+      s.removeAllRanges(); s.addRange(r);
+      try { document.execCommand("copy"); feito(); } catch(e){}
+    }
+  });
+
+  // Cronômetro de 60s (validade típica do code do ML)
+  var seg = 60;
+  var segEl = document.getElementById("seg");
+  var barFill = document.getElementById("barFill");
+  var timerEl = document.getElementById("timer");
+  var iv = setInterval(function(){
+    seg--;
+    if (seg <= 0){
+      clearInterval(iv);
+      timerEl.classList.add("expirado");
+      timerEl.textContent = "Código provavelmente expirado — autorize de novo para gerar outro.";
+      barFill.style.width = "0%";
+      return;
+    }
+    segEl.textContent = seg;
+    barFill.style.width = (seg/60*100) + "%";
+  }, 1000);
+})();
+</script>
+</body>
+</html>
